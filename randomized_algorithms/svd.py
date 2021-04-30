@@ -2,19 +2,20 @@ import numpy as np
 import scipy.linalg
 from abc import ABC, abstractmethod
 
-def DirectSVD(A, Q):
+def DirectSVD(A, Q, debug=True, check_finite=True):
     # Form the (k+p) x n matrix
     B = Q.conj().T @ A
 
     # Form the SVD of the small matrix
-    Uhat, d, vh = np.linalg.svd(B, full_matrices=False)
+    Uhat, d, vh = scipy.linalg.svd(B, full_matrices=False, overwrite_a=True,
+                                   check_finite=check_finite)
 
     u = Q @ Uhat
 
     return u, d, vh
 
 
-def InterpolatoryDecomposition_row(A, k, overwrite_a=False):
+def InterpolatoryDecomposition_row(A, k, overwrite_a=False, debug=True):
     m, n = A.shape
 
     Q, R, P = scipy.linalg.qr(A, pivoting=True, overwrite_a=overwrite_a, mode='economic')
@@ -38,15 +39,18 @@ def RowExtraction(A, Y, k, p=10):
     return Q @ Uhat, D, Vh
 
 
-def DirectEigenvalueDecomposition(A, Q):
+def DirectEigenvalueDecomposition(A, Q, debug=True):
     # Only if A is self adjoint
 
-    assert np.allclose(A, A.conj().T)
+    if debug:
+        assert np.allclose(A, A.conj().T)
 
     B = Q.conj().T @ A @ Q
 
-    assert np.allclose(B, B.conj().T)
-    w, v = np.linalg.eigh(B)
+    if debug:
+        assert np.allclose(B, B.conj().T)
+
+    w, v = scipy.linalg.eigh(B, overwrite_a=True)
 
     U = Q @ v
 
@@ -71,7 +75,7 @@ def NystromMethod(A, Q):
     return U, np.power(D, 2), Vh
 
 
-def SinglePassEigenvalueDecomposition(G, Q, Y):
+def SinglePassEigenvalueDecomposition(G, Q, Y, debug=True):
     # Only if A is self adjoint
 
     # Solve least squares problem C (Q*G) = Q*Y for C
@@ -84,7 +88,8 @@ def SinglePassEigenvalueDecomposition(G, Q, Y):
 
     Ch, res, _, _ = scipy.linalg.lstsq(A, B, overwrite_a=True, overwrite_b=True)
 
-    assert np.allclose(Ch, Ch.conj().T)
+    if debug:
+        assert np.allclose(Ch, Ch.conj().T)
 
     w, v = np.linalg.eigh(Ch)
 

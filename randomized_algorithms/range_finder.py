@@ -5,10 +5,10 @@ from random import sample
 from abc import ABC, abstractmethod
 
 
-#{{{ RandomizedRangeFinders_QR
+#{{{ RandomizedRangeFinders
 
-def RandomizedRangeFinder(A, k=0, p=10, q=0, overwrite_a=False, check_finite=True,
-                          return_random_and_sample=False, svd=False):
+def RandomizedRangeFinder(A, k=0, p=10, q=0, check_finite=True, svd=False,
+                          return_random_and_sample=False, debug=True):
     m, n = A.shape
 
     # if k is set leave it as is, else set to min(m, n)
@@ -25,11 +25,12 @@ def RandomizedRangeFinder(A, k=0, p=10, q=0, overwrite_a=False, check_finite=Tru
         Y = A @ G
 
     # Orhonormalize the columns
-    # Q is mxl
     if svd:
         U, _, _ = np.linalg.svd(Y, full_matrices=False)
         Q = U[:, :k]
     else:
+        # Q is mxl
+        overwrite_a = False if return_random_and_sample else True
         Q, _ = scipy.linalg.qr(Y, mode='economic', overwrite_a=overwrite_a,
                                check_finite=check_finite)
 
@@ -39,7 +40,7 @@ def RandomizedRangeFinder(A, k=0, p=10, q=0, overwrite_a=False, check_finite=Tru
     return Q
 
 
-def GPURandomizedRangeFinderQR(A, k=0, p=10, q=0):
+def GPURandomizedRangeFinderQR(A, k=0, p=10, q=0, debug=True):
     import cupy as cp
     m, n = A.shape
 
@@ -66,38 +67,9 @@ def GPURandomizedRangeFinderQR(A, k=0, p=10, q=0):
 
 
 
-def RandomizedRangeFinderSVD(A, k=0, p=10, q=0, overwrite_a=False, check_finite=True,
-                             return_random_and_sample=False):
-    m, n = A.shape
-
-    # if k is set leave it as is, else set to min(m, n)
-    k = k if k else min(m, n)
-    l = min(k + p, min(m, n))
-
-    # form n x l Gaussian random matrix G
-    G = np.random.normal(size=(n, l))
-
-    # Form the sample matrix m x l
-    if q:
-        Y = np.matrix_power(A @ A.conj().T, q) @ A @ G
-    else:
-        Y = A @ G
-
-    # Orhonormalize the columns
-    # Q is mxl
-    U, _, _ = np.linalg.svd(Y, full_matrices=False)
-
-    Q = U[:, :k]
-
-    if return_random_and_sample:
-        return Q, G, Y
-
-    return Q
-
-
 #{{{ RandomizedSubspaceIteration
 
-def RandomizedSubspaceIteration(A, k=0, p=10, q=0, return_random_and_sample=False):
+def RandomizedSubspaceIteration(A, k=0, p=10, q=0, return_random_and_sample=False, debug=True):
     m, n = A.shape
 
     # if k is set leave it as is, else set to min(m, n)
@@ -123,7 +95,7 @@ def RandomizedSubspaceIteration(A, k=0, p=10, q=0, return_random_and_sample=Fals
     return Q
 
 
-def GPURandomizedSubspaceIteration(A, k=0, p=10, q=0):
+def GPURandomizedSubspaceIteration(A, k=0, p=10, q=0, debug=True):
     import cupy as cp
     m, n = A.shape
 
@@ -150,7 +122,7 @@ def GPURandomizedSubspaceIteration(A, k=0, p=10, q=0):
 
 #{{{ FastRandomizedRangeFinder
 
-def FastRandomizedRangeFinder(A, k=0, p=20):
+def FastRandomizedRangeFinder(A, k=0, p=20, debug=True):
     m, n = A.shape
 
     # if k is set leave it as is, else set to min(m, n)
@@ -186,14 +158,15 @@ def FastRandomizedRangeFinder(A, k=0, p=20):
 
     # Y.T is lxm => Y is mxl
     Yt = np.sqrt(n/l) * np.fft.fft(np.multiply(D[:, None], A.T), norm='ortho', axis=0)[R, :]
-    import scipy.linalg
-    Y_ = np.sqrt(n/l) * A @ np.diagflat(D) @ scipy.linalg.dft(n, scale='sqrtn') @ np.eye(n)[:, R]
-    assert np.allclose(Y_.T, Yt)
+    if debug:
+        import scipy.linalg
+        Y_ = np.sqrt(n/l) * A @ np.diagflat(D) @ scipy.linalg.dft(n, scale='sqrtn') @ np.eye(n)[:, R]
+        assert np.allclose(Y_.T, Yt)
 
     return Yt.T
 
 
-def GPUFastRandomizedRangeFinder(A, k=0, p=20):
+def GPUFastRandomizedRangeFinder(A, k=0, p=20, debug=True):
     import cupy as cp
     m, n = A.shape
 
@@ -213,8 +186,8 @@ def GPUFastRandomizedRangeFinder(A, k=0, p=20):
 
 #{{{ BlockRandomizedRangeFinder
 
-def BlockRandomizedRangeFinder(A, k=0, p=10, q=0, col_num=2, overwrite_a=False,
-                               check_finite=True, return_random_and_sample=False):
+def BlockRandomizedRangeFinder(A, k=0, p=10, q=0, col_num=2, check_finite=True,
+                               return_random_and_sample=False, debug=True):
     m, n = A.shape
 
     # if k is set leave it as is, else set to min(m, n)
@@ -242,9 +215,12 @@ def BlockRandomizedRangeFinder(A, k=0, p=10, q=0, col_num=2, overwrite_a=False,
             Y += np.outer(a, a) @ y
 
     # Here we have all the columns and Y should be A @ G
-    assert np.allclose(Y, A @ G)
+    if debug:
+        assert np.allclose(Y, A @ G)
 
-    Q, _ = scipy.linalg.qr(Y, mode='economic', overwrite_a=overwrite_a, check_finite=check_finite)
+    overwrite_a = False if return_random_and_sample else True
+    Q, _ = scipy.linalg.qr(Y, mode='economic', overwrite_a=overwrite_a,
+                           check_finite=check_finite)
 
     if return_random_and_sample:
         return Q, G, Y
@@ -253,7 +229,7 @@ def BlockRandomizedRangeFinder(A, k=0, p=10, q=0, col_num=2, overwrite_a=False,
 
 
 
-def GPUBlockRandomizedRangeFinder(A, k=0, p=10, q=0, col_num=10):
+def GPUBlockRandomizedRangeFinder(A, k=0, p=10, q=0, col_num=10, debug=True):
     import cupy as cp
     m, n = A.shape
 
@@ -282,12 +258,11 @@ def GPUBlockRandomizedRangeFinder(A, k=0, p=10, q=0, col_num=10):
             Y += cp.outer(a, a) @ y
 
     # Here we have all the columns and Y should be A @ G
-    assert cp.allclose(Y, A @ G)
+    if debug:
+        assert cp.allclose(Y, A @ G)
 
     Q, _ = cp.linalg.qr(Y, mode='reduced')
 
     return Q
-
-#TODO: MPI implementation?
 
 #}}}

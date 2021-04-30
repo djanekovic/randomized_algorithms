@@ -102,8 +102,6 @@ class SinglePassEigenvalueDecompositionTestCase(TestSVDComputation, unittest.Tes
 
         V, D = SinglePassEigenvalueDecomposition(G, Q, Y)
 
-        D = np.linalg.svd(Q.conj().T @ G, compute_uv=False)
-        print ("smallest: ", D[-1])
         self.assertTrue(self.check_svd_computation(A, V, D, V.conj().T))
 
     def test_randomized_subspace_iteration(self):
