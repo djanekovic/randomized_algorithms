@@ -23,62 +23,42 @@ class TestRangeFinder(unittest.TestCase):
                 (np.linalg.norm(Sigma_2)**2) +
                 (np.linalg.norm(Sigma_2 @ Omega_2 @ np.linalg.pinv(Omega_1)))**2)
 
-        return True
 
 
+m = 2048
+n = 1024
+k = n-10
 
 class TestRandomizedRangeFinder(TestRangeFinder, unittest.TestCase):
     def test_error_bound(self):
-        m = 2048
-        n = 1024
-        k = 512
-
         A = np.random.normal(size=(m, n))
 
-        range_finder = RandomizedRangeFinder(k=k, p=0, q=0)
-        Q = range_finder.compute(A)
+        Q = RandomizedRangeFinder(A, k=k, p=0, q=0)
 
         self.assertTrue(self.check_error_bound(A, Q))
 
 
 class TestRandomizedSubspaceIteration(TestRangeFinder, unittest.TestCase):
     def test_error_bound(self):
-        m = 2048
-        n = 1024
-        k = 512
-
         A = np.random.normal(size=(m, n))
 
-        range_finder = RandomizedSubspaceIteration(k=k, p=0, q=0)
-        Q = range_finder.compute(A)
+        Q = RandomizedSubspaceIteration(A, k=k, p=0, q=0)
 
         self.assertTrue(self.check_error_bound(A, Q))
 
 
-class TestFastRandomizedRangeFinder(TestRangeFinder, unittest.TestCase):
+class TestFastRandomizedRangeFinder(unittest.TestCase):
     def test_error_bound(self):
-        m = 2048
-        n = 1024
-        k = 512
-
         A = np.random.normal(size=(m, n))
 
-        range_finder = FastRandomizedRangeFinder(k=k, p=0)
-        Q = range_finder.compute(A)
-
-        self.assertTrue(self.check_error_bound(A, Q))
+        Y = FastRandomizedRangeFinder(A, k=k, p=0)
 
 
 class TestBlockRandomizedRangeFinder(TestRangeFinder, unittest.TestCase):
     def test_error_bound(self):
-        m = 2048
-        n = 1024
-        k = 512
-
         A = np.random.normal(size=(m, n))
 
-        range_finder = BlockRandomizedRangeFinder(k=k, p=0, q=0)
-        Q = range_finder.compute(A)
+        Q = BlockRandomizedRangeFinder(A, k=k, p=0, q=0)
 
         self.assertTrue(self.check_error_bound(A, Q))
 
