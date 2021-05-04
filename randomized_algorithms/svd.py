@@ -2,15 +2,24 @@ import numpy as np
 import scipy.linalg
 from abc import ABC, abstractmethod
 
-def DirectSVD(A, Q, debug=True, check_finite=True):
+def DirectSVD(A, Q, debug=True, check_finite=True, eigh=False, p=10):
     # Form the (k+p) x n matrix
     B = Q.conj().T @ A
 
-    # Form the SVD of the small matrix
-    Uhat, d, vh = scipy.linalg.svd(B, full_matrices=False, overwrite_a=True,
-                                   check_finite=check_finite)
+    if eigh:
+        T = B @ B.conj().T
 
-    u = Q @ Uhat
+        d, Uhat = np.linalg.eigh(T)
+
+        d = np.sqrt(d)
+        u = Q @ Uhat
+        vh = np.linalg.inv(np.diagflat(d)) @ Uhat.conj().T @ B
+    else:
+        # Form the SVD of the small matrix
+        Uhat, d, vh = scipy.linalg.svd(B, full_matrices=False, overwrite_a=True,
+                                       check_finite=check_finite)
+
+        u = Q @ Uhat
 
     return u, d, vh
 
@@ -103,12 +112,10 @@ if __name__ == "__main__":
     n = 512
     k = 256
     A = np.random.randn(m, n)
-    A = A @ A.conj().T
 
-    Q, G, Y = RandomizedRangeFinder(A, k, p=50, return_random_and_sample=True, svd=False)
+    Q = RandomizedRangeFinder(A, k=k)
+    U, D, Vh = DirectSVD(A, Q, eigh=True)
 
-    V, D = SinglePassEigenvalueDecomposition(G, Q, Y)
-
-    print (np.linalg.norm(V @ np.diagflat(D) @ V.conj().T - A))
+    print (np.linalg.norm(A - U @ np.diagflat(D) @ Vh))
 
 

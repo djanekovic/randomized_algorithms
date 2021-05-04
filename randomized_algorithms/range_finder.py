@@ -20,7 +20,7 @@ def RandomizedRangeFinder(A, k=0, p=10, q=0, check_finite=True, svd=False,
 
     # Form the sample matrix m x l
     if q:
-        Y = np.matrix_power(A @ A.conj().T, q) @ A @ G
+        Y = np.linalg.matrix_power(A @ A.conj().T, q) @ A @ G
     else:
         Y = A @ G
 
@@ -53,7 +53,7 @@ def GPURandomizedRangeFinderQR(A, k=0, p=10, q=0, debug=True):
 
     # Form the sample matrix m x l
     if q:
-        Y = cp.matrix_power(A @ A.conj().T, q) @ A @ G
+        Y = cp.linalg.matrix_power(A @ A.conj().T, q) @ A @ G
     else:
         Y = A @ G
 
