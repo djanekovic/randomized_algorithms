@@ -12,7 +12,7 @@ class TestSVDComputation():
         U, D, Vh = np.linalg.svd(A, full_matrices=False)
         A_ = U_ @ np.diagflat(D_) @ Vh_
 
-        print (D[k+1], np.linalg.norm(A - A_))
+        print (D[k+1], np.linalg.norm(A - A_, 2))
 
         return True
 

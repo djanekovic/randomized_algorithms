@@ -2,7 +2,7 @@ import numpy as np
 import scipy.linalg
 from abc import ABC, abstractmethod
 
-def DirectSVD(A, Q, debug=True, check_finite=True, eigh=False, p=10):
+def DirectSVD(A, Q, check_finite=True, eigh=False):
     # Form the (k+p) x n matrix
     B = Q.conj().T @ A
 
@@ -13,11 +13,32 @@ def DirectSVD(A, Q, debug=True, check_finite=True, eigh=False, p=10):
 
         d = np.sqrt(d)
         u = Q @ Uhat
-        vh = np.linalg.inv(np.diagflat(d)) @ Uhat.conj().T @ B
+        vh = np.dot(1/d * Uhat.conj().T, B)
+        #vh = np.linalg.inv(np.diagflat(d)) @ Uhat.conj().T @ B
     else:
         # Form the SVD of the small matrix
         Uhat, d, vh = scipy.linalg.svd(B, full_matrices=False, overwrite_a=True,
                                        check_finite=check_finite)
+
+        u = Q @ Uhat
+
+    return u, d, vh
+
+def GPUDirectSVD(A, Q, eigh=False):
+    import cupy as cp
+    B = Q.conj().T @ A
+
+    if eigh:
+        T = B @ B.conj().T
+
+        d, Uhat = cp.linalg.eigh(T)
+
+        d = np.sqrt(d)
+        u = Q @ Uhat
+        vh = cp.dot(1/d * Uhat.conj().T, B)
+    else:
+        # Form the SVD of the small matrix
+        Uhat, d, vh = cp.linalg.svd(B, full_matrices=False)
 
         u = Q @ Uhat
 
@@ -65,6 +86,21 @@ def DirectEigenvalueDecomposition(A, Q, debug=True):
 
     return U, w, U.conj().T
 
+def GPUDirectEigenvalueDecomposition(A, Q, debug=True):
+    import cupy as cp
+    if debug:
+        assert cp.allclose(A, A.conj().T)
+
+    B = Q.conj().T @ A @ Q
+
+    if debug:
+        assert cp.allclose(B, B.conj().T)
+
+    w, v = cp.linalg.eigh(B)
+
+    U = Q @ v
+
+    return U, w, U.conj().T
 
 
 def NystromMethod(A, Q):
@@ -101,6 +137,21 @@ def SinglePassEigenvalueDecomposition(G, Q, Y, debug=True):
         assert np.allclose(Ch, Ch.conj().T)
 
     w, v = np.linalg.eigh(Ch)
+
+    return Q @ v, w
+
+
+def GPUSinglePassEigenvalueDecomposition(G, Q, Y, debug=True):
+    import cupy as cp
+    A = G.conj().T @ Q
+    B = Y.conj().T @ Q
+
+    Ch, res, _, _ = cp.linalg.lstsq(A, B)
+
+    if debug:
+        assert cp.allclose(Ch, Ch.conj().T)
+
+    w, v = cp.linalg.eigh(Ch)
 
     return Q @ v, w
 
