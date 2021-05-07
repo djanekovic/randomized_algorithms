@@ -9,12 +9,13 @@ def DirectSVD(A, Q, check_finite=True, eigh=False):
     if eigh:
         T = B @ B.conj().T
 
-        d, Uhat = np.linalg.eigh(T)
+        Dhat, Uhat = np.linalg.eigh(T)
 
-        d = np.sqrt(d)
+        d = np.sqrt(Dhat)
         u = Q @ Uhat
-        vh = np.dot(1/d * Uhat.conj().T, B)
-        #vh = np.linalg.inv(np.diagflat(d)) @ Uhat.conj().T @ B
+        # Why this does not work and why would it be slower?!
+        #vh = np.dot(np.reciprocal(d) * Uhat.conj().T, B)
+        vh = np.linalg.inv(np.diagflat(d)) @ Uhat.conj().T @ B
     else:
         # Form the SVD of the small matrix
         Uhat, d, vh = scipy.linalg.svd(B, full_matrices=False, overwrite_a=True,

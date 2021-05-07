@@ -7,12 +7,12 @@ from itertools import cycle
 
 def direct_svd(A, k, q=0, check_finite=False, debug=False, eigh=False):
     Q = RandomizedRangeFinder(A, k=k, q=q, check_finite=check_finite, debug=debug)
-    return DirectSVD(A, Q, debug=debug, check_finite=check_finite, eigh=eigh)
+    return DirectSVD(A, Q, check_finite=check_finite, eigh=eigh)
 
 
 def fast_svd(A, k, debug=False):
     Q, _ = np.linalg.qr(FastRandomizedRangeFinder(A, k=k, debug=debug))
-    return DirectSVD(A, Q, debug=debug, check_finite=False)
+    return DirectSVD(A, Q, check_finite=False)
 
 
 def baseline_svd(A):

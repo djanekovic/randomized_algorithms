@@ -153,6 +153,7 @@ def FastRandomizedRangeFinder(A, k=0, p=20, debug=True):
     #         |e f|
     #
     #
+    #TODO: profile why is this so slow...
     R = sample(list(range(n)), l)
     D = np.exp(2 * 1j * np.random.random_sample(size=n) * np.pi)
 
