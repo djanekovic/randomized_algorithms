@@ -120,7 +120,7 @@ def NystromMethod(A, Q):
     return U, np.power(D, 2), Vh
 
 
-def SinglePassEigenvalueDecomposition(G, Q, Y, debug=True):
+def SinglePassEigenvalueDecomposition(Q, G, Y, debug=True):
     # Only if A is self adjoint
 
     # Solve least squares problem C (Q*G) = Q*Y for C
@@ -131,9 +131,10 @@ def SinglePassEigenvalueDecomposition(G, Q, Y, debug=True):
     A = G.conj().T @ Q
     B = Y.conj().T @ Q
 
-    Ch, res, _, _ = scipy.linalg.lstsq(A, B, overwrite_a=True, overwrite_b=True)
+    Ch, _, _, _ = scipy.linalg.lstsq(A, B, overwrite_a=True, overwrite_b=True)
 
     if debug:
+        print (np.linalg.norm(Ch - Ch.conj().T))
         assert np.allclose(Ch, Ch.conj().T)
 
     w, v = np.linalg.eigh(Ch)
