@@ -4,7 +4,6 @@ import numpy as np
 import time
 import csv
 from itertools import cycle
-from matplotlib import pyplot as plt
 
 def direct_svd(A, k, q=0, check_finite=False, debug=False, eigh=False):
     Q = RandomizedRangeFinder(A, k=k, q=q, check_finite=check_finite, debug=debug)
