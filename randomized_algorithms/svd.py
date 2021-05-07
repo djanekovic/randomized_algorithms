@@ -25,23 +25,26 @@ def DirectSVD(A, Q, check_finite=True, eigh=False):
 
     return u, d, vh
 
-def GPUDirectSVD(A, Q, eigh=False):
+def GPUDirectSVD(A, Q_gpu, eigh=False):
+    # once tested merge this with the CPU function using: cp.get_array_module
     import cupy as cp
-    B = Q.conj().T @ A
+
+    B = Q_gpu.conj().T @ cp.asarray(A)
+
 
     if eigh:
         T = B @ B.conj().T
 
-        d, Uhat = cp.linalg.eigh(T)
+        Dhat, Uhat = cp.linalg.eigh(T)
 
-        d = np.sqrt(d)
-        u = Q @ Uhat
-        vh = cp.dot(1/d * Uhat.conj().T, B)
+        d = cp.sqrt(Dhat)
+        u = Q_gpu @ Uhat
+        vh = cp.linalg.inv(cp.diagflat(d)) @ Uhat.conj().T @ B
     else:
         # Form the SVD of the small matrix
         Uhat, d, vh = cp.linalg.svd(B, full_matrices=False)
 
-        u = Q @ Uhat
+        u = Q_gpu @ Uhat
 
     return u, d, vh
 

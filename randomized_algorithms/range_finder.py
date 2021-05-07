@@ -40,7 +40,7 @@ def RandomizedRangeFinder(A, k=0, p=10, q=0, check_finite=True, svd=False,
     return Q
 
 
-def GPURandomizedRangeFinderQR(A, k=0, p=10, q=0, debug=True):
+def GPURandomizedRangeFinder(A, k=0, p=10, q=0, debug=True):
     import cupy as cp
     m, n = A.shape
 
@@ -175,13 +175,13 @@ def GPUFastRandomizedRangeFinder(A, k=0, p=20, debug=True):
     k = k if k else min(m, n)
     l = min(k + p, min(m, n))
 
-    R = random.sample(list(range(n)), l)
+    R = sample(list(range(n)), l)
     D = cp.exp(2 * 1j * cp.random.sample(n) * np.pi)
 
     # Y.T is lxm => Y is mxl
     Yt = cp.sqrt(n/l) * cp.fft.fft(cp.multiply(D[:, None], A.T), norm='ortho', axis=0)[R, :]
 
-    return Y.T
+    return Yt.T
 
 #}}}
 
@@ -239,7 +239,8 @@ def GPUBlockRandomizedRangeFinder(A, k=0, p=10, q=0, col_num=10, debug=True):
     l = min(k + p, min(m, n))
 
     # form n x (k+p) Gaussian random matrix G
-    G = np.random.normal(size=(n, l))
+    if debug:
+        G = np.random.normal(size=(n, l))
 
     # number of columns we are pushing in the pipeline
     current_column = 0
@@ -248,7 +249,10 @@ def GPUBlockRandomizedRangeFinder(A, k=0, p=10, q=0, col_num=10, debug=True):
 
     for current_column in range(0, n, col_num):
         a = cp.array(A[:, current_column:current_column + col_num])
-        g = cp.array(G[current_column:current_column + col_num])
+        if debug:
+            g = cp.array(G[current_column:current_column + col_num])
+        else:
+            g = cp.random.normal(size=a.shape)
 
         y = a @ g
 
