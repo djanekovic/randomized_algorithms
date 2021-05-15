@@ -9,3 +9,7 @@ from .svd import (DirectSVD, RowExtraction, DirectEigenvalueDecomposition,
 from .range_finder import (GPURandomizedRangeFinder, GPUFastRandomizedRangeFinder)
 
 from .svd import GPUDirectSVD
+
+# import KSVD function
+
+from .ksvd import RandomizedKSVD, ApproximateKSVD, ClassicKSVD

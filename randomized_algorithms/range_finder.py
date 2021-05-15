@@ -19,20 +19,13 @@ def RandomizedRangeFinder(A, k=0, p=10, q=0, check_finite=True, svd=False,
     G = np.random.normal(size=(n, l))
 
     # Form the sample matrix m x l
-    if q:
-        Y = np.linalg.matrix_power(A @ A.conj().T, q) @ A @ G
-    else:
-        Y = A @ G
+    Y = A @ G
+    for _ in range(q):
+        Z = A.T @ Y
+        Y = A @ Z
 
-    # Orhonormalize the columns
-    if svd:
-        U, _, _ = np.linalg.svd(Y, full_matrices=False)
-        Q = U[:, :k]
-    else:
-        # Q is mxl
-        overwrite_a = False if return_random_and_sample else True
-        Q, _ = scipy.linalg.qr(Y, mode='economic', overwrite_a=overwrite_a,
-                               check_finite=check_finite)
+    # Q is mxl
+    Q, _ = np.linalg.qr(Y)
 
     if return_random_and_sample:
         return Q, G, Y
@@ -52,10 +45,10 @@ def GPURandomizedRangeFinder(A, k=0, p=10, q=0, debug=True):
     G = cp.random.normal(size=(n, l))
 
     # Form the sample matrix m x l
-    if q:
-        Y = cp.linalg.matrix_power(A @ A.conj().T, q) @ A @ G
-    else:
-        Y = A @ G
+    Y = A @ G
+    for _ in range(q):
+        Z = A.T @ Y
+        Y = A @ Z
 
     # Orhonormalize the columns
     # Q is mxl
