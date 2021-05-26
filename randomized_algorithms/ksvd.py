@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 
 def rsvd(A, k, p=10, q=0):
     Q = RandomizedRangeFinder(A, k=k, p=p, q=q, check_finite=False)
-    return DirectSVD(A, Q, eigh=True)
+    return DirectSVD(A, Q)
 
 class AbstractKSVD(ABC):
     def __init__(self, n_components, max_iter=10, tol=1e-6,
