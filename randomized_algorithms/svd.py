@@ -1,29 +1,62 @@
 import numpy as np
 import scipy.linalg
+from time import time
 from abc import ABC, abstractmethod
 
-def DirectSVD(A, Q, check_finite=True, eigh=False):
-    # Form the (k+p) x n matrix
-    B = Q.conj().T @ A
+class BaseRSVD:
+    def __init__(self, Q, **kwargs):
+        self._duration = {}
+        self._U, self._D, self._Vh = self._compute(Q, **kwargs)
 
-    if eigh:
-        T = B @ B.conj().T
+    @property
+    def U(self):
+        return self._U
 
-        Dhat, Uhat = np.linalg.eigh(T)
+    @property
+    def D(self):
+        return self._D
 
-        d = np.sqrt(Dhat)
-        u = Q @ Uhat
-        # Why this does not work and why would it be slower?!
-        #vh = np.dot(np.reciprocal(d) * Uhat.conj().T, B)
-        vh = np.linalg.inv(np.diagflat(d)) @ Uhat.conj().T @ B
-    else:
-        # Form the SVD of the small matrix
-        Uhat, d, vh = scipy.linalg.svd(B, full_matrices=False, overwrite_a=True,
-                                       check_finite=check_finite)
+    @property
+    def Vh(self):
+        return self._Vh
 
-        u = Q @ Uhat
+    @property
+    def duration(self):
+        return self._duration
 
-    return u, d, vh
+
+class DirectSVD(BaseRSVD):
+    def __init__(self, Q, **kwargs):
+        super().__init__(Q, **kwargs)
+
+    def _compute(self, Q, **kwargs):
+        A = kwargs['A']
+        eigh = kwargs['eigh']
+
+        start = time()
+        # Form the (k+p) x n matrix
+        B = Q.conj().T @ A
+
+        if eigh:
+            T = B @ B.conj().T
+
+            Dhat, Uhat = np.linalg.eigh(T)
+
+            d = np.sqrt(Dhat)
+            u = Q @ Uhat
+            # Why this does not work and why would it be slower?!
+            #vh = np.dot(np.reciprocal(d) * Uhat.conj().T, B)
+            vh = np.linalg.inv(np.diagflat(d)) @ Uhat.conj().T @ B
+        else:
+            # Form the SVD of the small matrix
+            Uhat, d, vh = np.linalg.svd(B, full_matrices=False)
+
+            u = Q @ Uhat
+
+        self._duration['factorization'] = time() - start
+
+        return u, d, vh
+
 
 def GPUDirectSVD(A, Q_gpu, eigh=False):
     # once tested merge this with the CPU function using: cp.get_array_module
@@ -73,22 +106,27 @@ def RowExtraction(A, Y, k, p=10):
     return Q @ Uhat, D, Vh
 
 
-def DirectEigenvalueDecomposition(A, Q, debug=True):
-    # Only if A is self adjoint
+class DirectEigenvalueDecomposition(BaseRSVD):
+    def __init__(self, Q, **kwargs):
+        super().__init__(Q, **kwargs)
 
-    if debug:
-        assert np.allclose(A, A.conj().T)
+    def _compute(self, Q, **kwargs):
+        A = kwargs['A']
+        debug = kwargs['debug']
 
-    B = Q.conj().T @ A @ Q
+        if debug:
+            assert np.allclose(A, A.conj().T)
 
-    if debug:
-        assert np.allclose(B, B.conj().T)
+        B = Q.conj().T @ A @ Q
 
-    w, v = scipy.linalg.eigh(B, overwrite_a=True)
+        if debug:
+            assert np.allclose(B, B.conj().T)
 
-    U = Q @ v
+        w, v = np.linalg.eigh(B)
+        U = Q @ v
 
-    return U, w, U.conj().T
+        return U, w, U.conj().T
+
 
 def GPUDirectEigenvalueDecomposition(A, Q, debug=True):
     import cupy as cp
@@ -124,26 +162,36 @@ def NystromMethod(A, Q):
     return U, np.power(D, 2), Vh
 
 
-def SinglePassEigenvalueDecomposition(Q, G, Y, debug=True):
-    # Only if A is self adjoint
+class SinglePassEigenvalueDecomposition(BaseRSVD):
+    def __init__(self, Q, **kwargs):
+        super().__init__(Q, **kwargs)
 
-    # Solve least squares problem C (Q*G) = Q*Y for C
-    #
-    # Attack everything with conjugate transpose:
-    # (G*Q) C* = Y*Q
+    def _compute(self, Q, **kwargs):
+        G = kwargs['G']
+        Y = kwargs['Y']
+        debug = kwargs['debug']
 
-    A = G.conj().T @ Q
-    B = Y.conj().T @ Q
+        # Only if A is self adjoint
 
-    Ch, _, _, _ = scipy.linalg.lstsq(A, B, overwrite_a=True, overwrite_b=True)
+        # Solve least squares problem C (Q*G) = Q*Y for C
+        #
+        # Attack everything with conjugate transpose:
+        # (G*Q) C* = Y*Q
 
-    if debug:
-        print (np.linalg.norm(Ch - Ch.conj().T))
-        assert np.allclose(Ch, Ch.conj().T)
+        A = G.conj().T @ Q
+        B = Y.conj().T @ Q
 
-    w, v = np.linalg.eigh(Ch)
+        Ch, _, _, _ = np.linalg.lstsq(A, B)
 
-    return Q @ v, w
+        if debug:
+            print (np.linalg.norm(Ch - Ch.conj().T))
+            assert np.allclose(Ch, Ch.conj().T)
+
+        w, v = np.linalg.eigh(Ch)
+        U = Q @ v
+        D = w
+
+        return U, D, U.conj().T
 
 
 def GPUSinglePassEigenvalueDecomposition(G, Q, Y, debug=True):

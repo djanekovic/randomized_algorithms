@@ -100,7 +100,8 @@ class RandomizedSubspaceIteration(BaseRangeFinder):
         start = time()
 
         # Orhonormalize the columns
-        Q, _ = np.linalg.qr(A @ self._G, 'reduced')
+        self._Y = A @ self._G
+        Q, _ = np.linalg.qr(self._Y, 'reduced')
 
         for _ in range(q):
             W, _ = np.linalg.qr(A.conj().T @ Q, 'reduced')

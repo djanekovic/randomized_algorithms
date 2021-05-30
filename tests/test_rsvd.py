@@ -7,123 +7,77 @@ m = 2048
 n = 1024
 k = 512
 
-class TestSVDComputation():
-    def check_svd_computation(self, A, U_, D_, Vh_):
-        U, D, Vh = np.linalg.svd(A, full_matrices=False)
-        A_ = U_ @ np.diagflat(D_) @ Vh_
+class TestSVDComputation(unittest.TestCase):
+    def tearDown(self):
+        D = np.linalg.svd(self.A, full_matrices=False, compute_uv=False)
+        A_ = np.dot(self._rsvd.U *self._rsvd.D, self._rsvd.Vh)
+        print (D[k+1], np.linalg.norm(self.A - A_, 2))
 
-        print (D[k+1], np.linalg.norm(A - A_, 2))
+    def directSVDGenerator(self, range_finder):
+        return BaseRSVD(self.A, k, range_finder, DirectSVD)
 
-        return True
+    def directEigenvalueDecompositionGenerator(self, range_finder):
+        return BaseRSVD(self.A, k, range_finder, DirectEigenvalueDecomposition)
 
-class DirectSVDTestCase(TestSVDComputation, unittest.TestCase):
-    def test_randomized_range_finder(self):
+    def singlePassEigenvalueDecompositionGenerator(self, range_finder):
+        return BaseRSVD(self.A, k, range_finder, SinglePassEigenvalueDecomposition)
+
+
+class TestGeneralSVDComputation(TestSVDComputation):
+    def setUp(self):
+        self.A = np.random.randn(m, n)
+
+class TestHermiteanSVDComputation(TestSVDComputation):
+    def setUp(self):
         A = np.random.randn(m, n)
-        Q = RandomizedRangeFinder(A, k)
+        self.A = A @ A.conj().T
 
-        U, D, Vh = DirectSVD(A, Q)
 
-        self.assertTrue(self.check_svd_computation(A, U, D, Vh))
+class DirectSVDTestCase(TestGeneralSVDComputation):
+    def test_randomized_range_finder(self):
+        self._rsvd = self.directSVDGenerator(RandomizedRangeFinder)
+
 
     def test_randomized_subspace_iteration(self):
-        A = np.random.randn(m, n)
-        Q = RandomizedSubspaceIteration(A, k)
+        self._rsvd = self.directSVDGenerator(RandomizedSubspaceIteration)
 
-        U, D, Vh = DirectSVD(A, Q)
-
-        self.assertTrue(self.check_svd_computation(A, U, D, Vh))
 
     def test_fast_randomized_range_finder(self):
-        A = np.random.randn(m, n)
-        Q, _ = np.linalg.qr(FastRandomizedRangeFinder(A, k))
-
-        U, D, Vh = DirectSVD(A, Q)
-
-        self.assertTrue(self.check_svd_computation(A, U, D, Vh))
+        self._rsvd = self.directSVDGenerator(FastRandomizedRangeFinder)
 
 
     def test_block_randomized_range_finder(self):
-        A = np.random.randn(m, n)
-        Q = BlockRandomizedRangeFinder(A, k, col_num=512)
+        self._rsvd = self.directSVDGenerator(BlockRandomizedRangeFinder)
 
-        U, D, Vh = DirectSVD(A, Q)
-
-        self.assertTrue(self.check_svd_computation(A, U, D, Vh))
-
-class DirectEigenvalueDecompositionTestCase(TestSVDComputation, unittest.TestCase):
+class DirectEigenvalueDecompositionTestCase(TestHermiteanSVDComputation):
     def test_randomized_range_finder(self):
-        A = np.random.randn(m, n)
-        A = A @ A.conj().T
+        self._rsvd = self.directEigenvalueDecompositionGenerator(RandomizedRangeFinder)
 
-        Q = RandomizedRangeFinder(A, k)
-
-        U, D, Vh = DirectEigenvalueDecomposition(A, Q)
-
-        self.assertTrue(self.check_svd_computation(A, U, D, Vh))
 
     def test_randomized_subspace_iteration(self):
-        A = np.random.randn(m, n)
-        A = A @ A.conj().T
+        self._rsvd = self.directEigenvalueDecompositionGenerator(RandomizedSubspaceIteration)
 
-        Q = RandomizedSubspaceIteration(A, k)
-
-        U, D, Vh = DirectEigenvalueDecomposition(A, Q)
-
-        self.assertTrue(self.check_svd_computation(A, U, D, Vh))
 
     def test_fast_randomized_range_finder(self):
-        A = np.random.randn(m, n)
-        A = A @ A.conj().T
-
-        Q, _ = np.linalg.qr(FastRandomizedRangeFinder(A, k))
-
-        U, D, Vh = DirectEigenvalueDecomposition(A, Q)
-
-        self.assertTrue(self.check_svd_computation(A, U, D, Vh))
+        self._rsvd = self.directEigenvalueDecompositionGenerator(FastRandomizedRangeFinder)
 
 
     def test_block_randomized_range_finder(self):
-        A = np.random.randn(m, n)
-        A = A @ A.conj().T
-
-        Q = BlockRandomizedRangeFinder(A, k, col_num=512)
-
-        U, D, Vh = DirectEigenvalueDecomposition(A, Q)
-
-        self.assertTrue(self.check_svd_computation(A, U, D, Vh))
+        self._rsvd = self.directEigenvalueDecompositionGenerator(BlockRandomizedRangeFinder)
 
 
-class SinglePassEigenvalueDecompositionTestCase(TestSVDComputation, unittest.TestCase):
+class SinglePassEigenvalueDecompositionTestCase(TestHermiteanSVDComputation):
     def test_randomized_range_finder_qr(self):
-        A = np.random.randn(m, n)
-        A = A @ A.conj().T
-
-        Q, G, Y = RandomizedRangeFinder(A, k, return_random_and_sample=True)
-
-        V, D = SinglePassEigenvalueDecomposition(G, Q, Y)
-
-        self.assertTrue(self.check_svd_computation(A, V, D, V.conj().T))
+        self._rsvd = self.singlePassEigenvalueDecompositionGenerator(RandomizedRangeFinder)
 
     def test_randomized_subspace_iteration(self):
-        A = np.random.randn(m, n)
-        A = A @ A.conj().T
+        self._rsvd = self.singlePassEigenvalueDecompositionGenerator(RandomizedSubspaceIteration)
 
-        Q, G, Y = RandomizedSubspaceIteration(A, k, return_random_and_sample=True)
-
-        V, D = SinglePassEigenvalueDecomposition(G, Q, Y)
-
-        self.assertTrue(self.check_svd_computation(A, V, D, V.conj().T))
+    def test_fast_randomized_range_finder(self):
+        self._rsvd = self.singlePassEigenvalueDecompositionGenerator(FastRandomizedRangeFinder)
 
     def test_block_randomized_range_finder(self):
-        A = np.random.randn(m, n)
-        A = A @ A.conj().T
-
-        Q, G, Y = BlockRandomizedRangeFinder(A, k, col_num=512,
-                                             return_random_and_sample=True)
-
-        V, D = SinglePassEigenvalueDecomposition(G, Q, Y)
-
-        self.assertTrue(self.check_svd_computation(A, V, D, V.conj().T))
+        self._rsvd = self.singlePassEigenvalueDecompositionGenerator(BlockRandomizedRangeFinder)
 
 if __name__ == "__main__":
     unittest.main()
