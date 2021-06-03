@@ -51,13 +51,13 @@ class RandomizedRangeFinder(BaseRangeFinder):
         for _ in range(q):
             Z = A.T @ self._Y
             self._Y = A @ Z
-        self._duration["gemm"] = time() - start
+        self._duration["GEMM"] = time() - start
 
         start = time()
 
         # Q is mxl
         Q, _ = np.linalg.qr(self._Y)
-        self._duration["qr"] = time() - start
+        self._duration["QR"] = time() - start
 
         return Q
 
@@ -106,9 +106,9 @@ class RandomizedSubspaceIteration(BaseRangeFinder):
         for _ in range(q):
             W, _ = np.linalg.qr(A.conj().T @ Q, 'reduced')
             Q, _ = np.linalg.qr(A @ W, 'reduced')
-        self._duration['gemm'] = time() - start
+        self._duration['GEMM'] = time() - start
 
-        self._duration['qr'] = 0
+        self._duration['QR'] = 0
 
         return Q
 
@@ -156,11 +156,11 @@ class FastRandomizedRangeFinder():
 
         start = time()
         self._Y = self._compute(A, debug)
-        self._duration['gemm'] = time() - start
+        self._duration['GEMM'] = time() - start
 
         start = time()
         self._Q, _ = np.linalg.qr(self._Y)
-        self._duration['qr'] = time() - start
+        self._duration['QR'] = time() - start
 
     def _compute(self, A, debug):
         Yt = np.fft.fft(np.multiply(self._D[:, None], A.T), norm='ortho', axis=0)[self._R, :]
@@ -235,7 +235,7 @@ class BlockRandomizedRangeFinder(BaseRangeFinder):
 
             for _ in range(q):
                 self._Y += np.outer(a, a) @ y
-        self._duration['gemm'] = time() - start
+        self._duration['GEMM'] = time() - start
 
         # Here we have all the columns and Y should be A @ G
         if debug:
@@ -243,7 +243,7 @@ class BlockRandomizedRangeFinder(BaseRangeFinder):
 
         start = time()
         Q, _ = np.linalg.qr(self._Y)
-        self._duration['qr'] = time() - start
+        self._duration['QR'] = time() - start
 
         return Q
 

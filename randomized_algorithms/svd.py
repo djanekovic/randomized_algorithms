@@ -5,8 +5,9 @@ from abc import ABC, abstractmethod
 
 class BaseRSVD:
     def __init__(self, Q, **kwargs):
-        self._duration = {}
+        start = time()
         self._U, self._D, self._Vh = self._compute(Q, **kwargs)
+        self._duration = {'Factorization': time() - start}
 
     @property
     def U(self):
@@ -33,7 +34,6 @@ class DirectSVD(BaseRSVD):
         A = kwargs['A']
         eigh = kwargs['eigh']
 
-        start = time()
         # Form the (k+p) x n matrix
         B = Q.conj().T @ A
 
@@ -53,7 +53,6 @@ class DirectSVD(BaseRSVD):
 
             u = Q @ Uhat
 
-        self._duration['factorization'] = time() - start
 
         return u, d, vh
 

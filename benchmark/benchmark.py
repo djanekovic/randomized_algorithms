@@ -1,140 +1,165 @@
 from randomized_algorithms import *
-from functools import partial
+
+from itertools import product
+from time import time
+
 import numpy as np
-import time
+import os
 import csv
-from itertools import cycle
 
-def direct_svd(A, k, q=0, check_finite=False, debug=False, eigh=False):
-    Q = RandomizedRangeFinder(A, k=k, q=q, check_finite=check_finite, debug=debug)
-    return DirectSVD(A, Q, check_finite=check_finite, eigh=eigh)
+KEYS = ['GEMM', 'QR', 'Factorization']
+
+class BenchmarkRun:
+    def __init__(self, A, k, range_finder, factorization,
+                 q=0, eigh=False, num_times=1, debug=False):
+        dicts = [
+            BaseRSVD(A, k, range_finder, factorization, q=q, eigh=eigh, debug=debug).duration
+                for _ in range(num_times)
+        ]
+
+        # aggregate duration dicts
+        self._duration_dicts = { k: sum([d[k] for d in dicts])/num_times for k in KEYS }
+
+        self._total_duration_avg = sum([sum(d.values()) for d in dicts])
+
+    @property
+    def duration_dicts(self):
+        return self._duration_dicts
+
+    @property
+    def total_duration_avg(self):
+        return self._total_duration_avg
 
 
-def fast_svd(A, k, debug=False):
-    Q, _ = np.linalg.qr(FastRandomizedRangeFinder(A, k=k, debug=debug))
-    return DirectSVD(A, Q, check_finite=False)
+def DirctSVDBenchmarkGenerator(A, k, q=0, eigh=False, num_times=1, debug=False):
+    return BenchmarkRun(A, k, RandomizedRangeFinder, DirectSVD,
+                        q=q, eigh=eigh, num_times=num_times, debug=debug)
 
 
-def baseline_svd(A):
-    return np.linalg.svd(A, full_matrices=False)
+def FastDirectSVDBenchmarkGenerator(A, k, num_times=1, debug=False):
+    return BenchmarkRun(A, k, FastRandomizedRangeFinder, DirectSVD,
+                        num_times=num_times, debug=debug)
 
 
-def time_wrapper(func, num_times):
-    start = time.time()
+def direct_svd(A, k, q=0, eigh=False):
+    rsvd = BaseRSVD(A, k, RandomizedRangeFinder, DirectSVD, q, eigh)
+    return rsvd.U, rsvd.D, rsvd.Vh
 
-    [ func() for i in range(num_times)]
 
-    return (time.time() - start) / num_times
+def fast_svd(A, k, debug=True):
+    rsvd = BaseRSVD(A, k, FastRandomizedRangeFinder, DirectSVD, debug=debug)
+    return rsvd.U, rsvd.D, rsvd.Vh
+
+
+def time_wrapper(func, num_times, *args, **kwargs):
+    start = time()
+
+    [ func(*args, **kwargs) for i in range(num_times)]
+
+    return (time() - start) / num_times
 
 
 def approx_norm(A, U, D, Vh):
     return np.linalg.norm(A -  np.dot(U * D,  Vh), 2)
 
-def generate_speed_data(m, n, num_times, ranks):
-    A = np.random.normal(size=(m, n))
-    baseline_svd_partial = partial(np.linalg.svd, A, full_matrices=False)
-    baseline_svd_time = time_wrapper(baseline_svd_partial, num_times)
 
-    direct_svd_times = []
-    direct_svd_eigh_times = []
-    fast_svd_times = []
+def generate_speed_data(m, n, num_times, ranks, q_range=2):
+    A = np.random.normal(size=(m, n))
+    baseline_svd_time = time_wrapper(np.linalg.svd, num_times, A, full_matrices=False)
 
     # for each rank
-    for q in range(2):
-        direct_svd_times_q = []
-        direct_svd_eigh_times_q = []
+    direct_svd_times = [
+        [DirctSVDBenchmarkGenerator(A, k, q=q, eigh=False, num_times=num_times).duration_dicts
+            for k in ranks] for q in range(q_range)
+    ]
 
-        for k in ranks:
-            direct_svd_partial = partial(direct_svd, A, k=k, q=q)
-            direct_svd_eigh_partial = partial(direct_svd, A, k=k, q=q, eigh=True)
 
-            direct_svd_times_q.append(time_wrapper(direct_svd_partial, num_times))
-            direct_svd_eigh_times_q.append(time_wrapper(direct_svd_eigh_partial, num_times))
+    direct_svd_eigh_times = [
+        [DirctSVDBenchmarkGenerator(A, k, q=q, eigh=True, num_times=num_times).duration_dicts
+            for k in ranks] for q in range(q_range)
+    ]
 
-        direct_svd_times.append(direct_svd_times_q)
-        direct_svd_eigh_times.append(direct_svd_eigh_times_q)
 
-    for k in ranks:
-        fast_svd_partial = partial(fast_svd, A, k=k)
-        fast_svd_times.append(time_wrapper(fast_svd_partial, num_times))
+    fast_svd_times = [
+        FastDirectSVDBenchmarkGenerator(A, k, num_times).duration_dicts for k in ranks
+    ]
 
     return baseline_svd_time, direct_svd_times, direct_svd_eigh_times, fast_svd_times
 
-def generate_accuracy_data(m, n, num_times, logspace_stop, ranks):
+
+def write_out_speed_dicts(f, durations):
+    speed_writer = csv.writer(f)
+    speed_writer.writerow(["Ranks", *KEYS])
+    [
+        speed_writer.writerow([k, *map(d.get, KEYS)]) for k, d in zip(ranks, durations)
+    ]
+
+def write_out_speed_data(m, n, num_times, ranks):
+    print("Generating speed data...")
+    baseline, direct_svd, direct_svd_eigh, fast_svd = generate_speed_data(m, n, num_times, ranks)
+
+    print("Writing out CSV file for speed data...")
+
+    os.makedirs('speed_data', exist_ok=True)
+
+    for q, durations in enumerate(direct_svd):
+        with open('speed_data/DirectSVD_q_{}.csv'.format(q), 'w', newline='') as f:
+            write_out_speed_dicts(f, durations)
+
+    for q, durations in enumerate(direct_svd_eigh):
+        with open('speed_data/DirectEighSVD_q_{}.csv'.format(q), 'w', newline='') as f:
+            write_out_speed_dicts(f, durations)
+
+    with open('speed_data/FastSVD.csv'.format(q), 'w', newline='') as f:
+        write_out_speed_dicts(f, fast_svd)
+
+    with open('speed_data/Baseline.txt', 'w', newline='') as f:
+        f.write(str(baseline))
+
+
+def generate_accuracy_data(m, n, num_times, logspace_stop, ranks, q_range=2):
     A = np.random.normal(size=(m, n))
+
     U, _, Vh = np.linalg.svd(A, full_matrices=False)
     D = np.logspace(0, logspace_stop, min(m, n))
     A = np.dot(U * D, Vh)
 
-    direct_svd_norms = []
-    direct_svd_eigh_norms = []
-    fast_svd_norms = []
+    direct_svd_norms = [
+        [approx_norm(A, *direct_svd(A, k=k, q=q, eigh=False)) for k in ranks]
+            for q in range(q_range)
+    ]
 
-    for q in range(2):
-        direct_svd_norms_q = []
-        direct_svd_eigh_norms_q = []
+    direct_svd_eigh_norms = [
+        [approx_norm(A, *direct_svd(A, k=k, q=q, eigh=True)) for k in ranks]
+            for q in range(q_range)
+    ]
 
-        for k in ranks:
-            direct_svd_norms_q.append(approx_norm(A, *direct_svd(A, k=k, q=q)))
-            direct_svd_eigh_norms_q.append(approx_norm(A, *direct_svd(A, k=k, q=q, eigh=True)))
-
-        direct_svd_norms.append(direct_svd_norms_q)
-        direct_svd_eigh_norms.append(direct_svd_eigh_norms_q)
-
-    for k in ranks:
-        fast_svd_norms.append(approx_norm(A, *fast_svd(A, k=k)))
+    fast_svd_norms = [approx_norm(A, *fast_svd(A, k=k)) for k in ranks]
 
     return D[ranks], direct_svd_norms, direct_svd_eigh_norms, fast_svd_norms
 
-def plot_speed_data():
-    print ("Plotting and saving speed data...")
-    markers = cycle(('o', 'v', '^', '<', '>', 'x'))
-    fig, ax = plt.subplots()
-    ax.axhline(baseline, label="Full SVD", linestyle='--')
-    [ax.plot(ranks, direct_svd[q], marker=next(markers), label="DirectSVD, q={}".format(q)) for q in range(2)]
-    [ax.plot(ranks, direct_svd_eigh[q], marker=next(markers), label="EighSVD, q={}".format(q)) for q in range(2)]
-    ax.plot(ranks, fast_svd, marker=next(markers), label="FastSVD")
-    plt.legend()
-
-    plt.savefig("rsvd_speed.pdf", bbox_inches="tight")
-
-def write_out_speed_data(m, n, num_times, ranks):
-    print("Generating speed data...")
-    baseline, direct_svd, svd_eigh, fast_svd = generate_speed_data(m, n, num_times, ranks)
-
-    print("Writing out CSV file for speed data...")
-
-    with open("speed_data.csv", 'w', newline='') as f:
-        speed_writer = csv.writer(f)
-        speed_writer.writerow(["Ranks", "DirectSVD q=0", "DirectSVD q=1",
-                                        "EighSVD q=0", "EighSVD q=1",
-                                        "FastSVD", "Baseline"])
-        [speed_writer.writerow([*row, baseline]) for row in zip(ranks,
-                                                                direct_svd[0], direct_svd[1],
-                                                                svd_eigh[0], svd_eigh[1],
-                                                                fast_svd)]
-
 
 def write_out_accuracy_data(m, n, num_times, ranks):
+    os.makedirs('accuracy_data', exist_ok=True)
+
     for logspace_stop in (-0.5, -1, -2, -3.5):
         print("Generating accuracy data for logspace_stop: {}...".format(logspace_stop))
-        sing_vals, direct_svd, svd_eigh, fast_svd = generate_accuracy_data(m, n, num_times, logspace_stop, ranks)
+        sing_vals, direct_svd, direct_svd_eigh, fast_svd = generate_accuracy_data(m, n, num_times, logspace_stop, ranks)
 
         print ("Writing out CSV file for accuracy data...")
 
-        with open("accuracy_data_{}.csv".format(logspace_stop), 'w', newline='') as f:
+        with open("accuracy_data/logspace_{}.csv".format(logspace_stop), 'w', newline='') as f:
             acc_writer = csv.writer(f)
             acc_writer.writerow(["Ranks", "DirectSVD q=0", "DirectSVD q=1",
                                                "EighSVD q=0", "EighSVD q=1",
                                                "FastSVD", "Baseline"])
-            [acc_writer.writerow(row) for row in zip(ranks,
-                                                     direct_svd[0], direct_svd[1],
-                                                     svd_eigh[0], svd_eigh[1],
+            [acc_writer.writerow(row) for row in zip(ranks, *[d for d in direct_svd],
+                                                     *[d for d in direct_svd_eigh],
                                                      fast_svd, sing_vals)]
 
 
 if __name__ == "__main__":
-    (m, n) = (1024 * 1, 512 * 1)
+    (m, n) = (512 * 2, 256 * 2)
     num_times = 1
     # unique is extra here but just to be sure
     ranks = np.unique(np.linspace(1, n, 10, endpoint=False, dtype=np.int32))
