@@ -164,15 +164,16 @@ class FastRandomizedRangeFinder():
 
     def _compute(self, A, debug):
         Yt = np.fft.fft(np.multiply(self._D[:, None], A.T), norm='ortho', axis=0)[self._R, :]
+        Y = np.transpose(Yt)
 
         if debug:
             _, n = A.shape
             Y_ = A  @ np.diagflat(self._D)
             Y_ = Y_ @ scipy.linalg.dft(n, scale='sqrtn')
             Y_ = Y_ @ np.eye(n)[:, self._R]
-            assert np.allclose(Y_, Yt.T)
+            assert np.allclose(Y_, Y)
 
-        return Yt.T
+        return Y
 
     @property
     def Y(self):

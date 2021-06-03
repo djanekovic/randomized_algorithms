@@ -46,7 +46,7 @@ def direct_svd(A, k, q=0, eigh=False):
     return rsvd.U, rsvd.D, rsvd.Vh
 
 
-def fast_svd(A, k, debug=True):
+def fast_svd(A, k, debug=False):
     rsvd = BaseRSVD(A, k, FastRandomizedRangeFinder, DirectSVD, debug=debug)
     return rsvd.U, rsvd.D, rsvd.Vh
 
@@ -78,7 +78,6 @@ def generate_speed_data(m, n, num_times, ranks, q_range=2):
         [DirctSVDBenchmarkGenerator(A, k, q=q, eigh=True, num_times=num_times).duration_dicts
             for k in ranks] for q in range(q_range)
     ]
-
 
     fast_svd_times = [
         FastDirectSVDBenchmarkGenerator(A, k, num_times).duration_dicts for k in ranks
