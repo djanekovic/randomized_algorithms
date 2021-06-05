@@ -105,7 +105,7 @@ def RowExtraction(A, Y, k, p=10):
     return Q @ Uhat, D, Vh
 
 
-class DirectEigenvalueDecomposition(BaseRSVD):
+class DirectEigh(BaseRSVD):
     def __init__(self, Q, **kwargs):
         super().__init__(Q, **kwargs)
 
@@ -161,15 +161,11 @@ def NystromMethod(A, Q):
     return U, np.power(D, 2), Vh
 
 
-class SinglePassEigenvalueDecomposition(BaseRSVD):
+class SinglePassEigh(BaseRSVD):
     def __init__(self, Q, **kwargs):
         super().__init__(Q, **kwargs)
 
     def _compute(self, Q, **kwargs):
-        G = kwargs['G']
-        Y = kwargs['Y']
-        debug = kwargs['debug']
-
         # Only if A is self adjoint
 
         # Solve least squares problem C (Q*G) = Q*Y for C
@@ -177,12 +173,12 @@ class SinglePassEigenvalueDecomposition(BaseRSVD):
         # Attack everything with conjugate transpose:
         # (G*Q) C* = Y*Q
 
-        A = G.conj().T @ Q
-        B = Y.conj().T @ Q
+        A = kwargs['G'].conj().T @ Q
+        B = kwargs['Y'].conj().T @ Q
 
         Ch, _, _, _ = np.linalg.lstsq(A, B)
 
-        if debug:
+        if kwargs['debug']:
             print (np.linalg.norm(Ch - Ch.conj().T))
             assert np.allclose(Ch, Ch.conj().T)
 
