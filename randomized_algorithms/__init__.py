@@ -10,8 +10,8 @@ from .ksvd import RandomizedKSVD, ApproximateKSVD, ClassicKSVD
 
 
 class BaseRSVD:
-    def __init__(self, A, k, range_finder, factorization, q=0, eigh=False, debug=True):
-        rf = range_finder(A, k, q=q, debug=debug)
+    def __init__(self, A, k, range_finder, factorization, p=10, q=0, eigh=False, debug=True):
+        rf = range_finder(A, k, p=p, q=q, debug=debug)
         f = factorization(rf.Q, A=A, G=rf.G, Y=rf.Y, eigh=eigh, debug=debug)
         self._duration = dict(rf.duration, **f.duration)
         self._U = f.U
